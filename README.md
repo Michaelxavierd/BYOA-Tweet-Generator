@@ -19,4 +19,4 @@ A content remixing tool using React.
 
 1. Add in another AI API
 2. Add a way to upload audio files to have them transcribed 
-3. Click to tweet or to schedule a tweet from the output 
+3. Click to tweet or to schedule a tweet from the output # BYOA-Tweet-Generator
