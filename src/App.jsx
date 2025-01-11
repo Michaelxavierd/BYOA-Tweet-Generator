@@ -106,6 +106,11 @@ function App() {
             <p key={i} className="leading-relaxed text-lg transition-all">{line.trim()}</p>
           ))}
         </div>
+        <div className="mt-6 flex justify-end">
+          <span className="text-sm text-gray-500">
+            {280 - tweet.content.length} characters remaining
+          </span>
+        </div>
         <div className="absolute inset-0 bg-gradient-to-br from-indigo-600/0 to-indigo-600/0 group-hover:from-indigo-600/5 group-hover:to-transparent rounded-xl transition-all duration-500"></div>
       </div>
     ));
@@ -123,7 +128,11 @@ function App() {
             <svg className="w-12 h-12" fill="currentColor" viewBox="0 0 24 24">
               <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
             </svg>
-            remixer
+            <span>
+              <span className="font-bold">R</span>
+              <span className="font-bold">e</span>
+              <span className="font-black border-b-4 border-indigo-600">mixer</span>
+            </span>
           </h1>
           <p className="text-gray-400 text-xl max-w-2xl mx-auto">
             Transform your content with AI-powered remixing
@@ -141,11 +150,20 @@ function App() {
             />
             
             <button
-              className="w-full mt-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed uppercase"
+              className="w-full mt-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed uppercase flex items-center justify-center gap-3"
               onClick={handleRemix}
               disabled={!inputText || isLoading}
             >
-              {isLoading ? 'GENERATING TWEETS...' : 'GENERATE TWEETS'}
+              {isLoading ? (
+                <>
+                  <svg className="w-5 h-5 animate-spin" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                  </svg>
+                  GENERATING TWEETS...
+                </>
+              ) : (
+                'GENERATE TWEETS'
+              )}
             </button>
           </div>
           
