@@ -1,20 +1,107 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Anthropic from '@anthropic-ai/sdk'
+import { supabase } from './supabaseClient'
 
 function App() {
   const [inputText, setInputText] = useState('')
   const [outputText, setOutputText] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [savedTweets, setSavedTweets] = useState([])
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+
+  // Fetch saved tweets on component mount
+  useEffect(() => {
+    fetchSavedTweets()
+  }, [])
+
+  const fetchSavedTweets = async () => {
+    const { data, error } = await supabase
+      .from('saved_tweets')
+      .select('*')
+      .order('created_at', { ascending: false })
+
+    if (error) {
+      console.error('Error fetching saved tweets:', error)
+    } else {
+      setSavedTweets(data)
+    }
+  }
+
+  const handleSaveTweet = async (tweetContent) => {
+    try {
+      console.log('Attempting to save tweet:', { tweetContent });
+      
+      if (!tweetContent) {
+        throw new Error('Tweet content is empty');
+      }
+
+      const { data, error } = await supabase
+        .from('saved_tweets')
+        .insert([
+          { 
+            content: tweetContent,
+            created_at: new Date().toISOString()
+          }
+        ])
+        .select('*')
+        .single()
+
+      if (error) {
+        console.error('Supabase Error:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
+        throw error;
+      }
+
+      if (!data) {
+        throw new Error('No data returned from save operation');
+      }
+
+      console.log('Tweet saved successfully:', data);
+      setSavedTweets(prev => [...prev, data]);
+      setIsSidebarOpen(true);
+      
+    } catch (error) {
+      console.error('Save tweet error:', error);
+      alert(error.message || 'Failed to save tweet. Please try again.');
+    }
+  }
+
+  const handleDeleteSavedTweet = async (tweetId) => {
+    try {
+      const { error } = await supabase
+        .from('saved_tweets')
+        .delete()
+        .eq('id', tweetId)
+
+      if (error) {
+        console.error('Error deleting tweet:', error)
+        alert('Failed to delete tweet. Please try again.')
+      } else {
+        setSavedTweets(savedTweets.filter(tweet => tweet.id !== tweetId))
+      }
+    } catch (error) {
+      console.error('Error deleting tweet:', error)
+      alert('Failed to delete tweet. Please try again.')
+    }
+  }
 
   const handleRemix = async () => {
     setIsLoading(true)
     try {
+      if (!import.meta.env.VITE_CLAUDE_API_KEY) {
+        throw new Error('Please add your Claude API key to the .env file')
+      }
+
       const anthropic = new Anthropic({
         apiKey: import.meta.env.VITE_CLAUDE_API_KEY,
         dangerouslyAllowBrowser: true
       })
 
-      const msg = await anthropic.messages.create({
+      const response = await anthropic.messages.create({
         model: "claude-3-sonnet-20240229",
         max_tokens: 1024,
         messages: [
@@ -46,7 +133,13 @@ function App() {
         ],
       })
 
-      setOutputText(msg.content[0].text)
+      console.log('Claude API Response:', response)
+
+      if (!response || !response.content || !response.content[0]) {
+        throw new Error('Invalid response from Claude API')
+      }
+
+      setOutputText(response.content[0].text)
     } catch (error) {
       console.error('Detailed Error:', {
         message: error.message,
@@ -54,7 +147,7 @@ function App() {
         status: error.status,
         details: error
       })
-      setOutputText(`Error: ${error.message || 'Unknown error occurred'}`)
+      setOutputText(`Error: ${error.message || 'Unknown error occurred'}. Please check your API key and try again.`)
     }
     setIsLoading(false)
   }
@@ -91,15 +184,26 @@ function App() {
             </div>
             <div className="h-px flex-grow bg-gray-800 group-hover:bg-indigo-900/50 transition-colors"></div>
           </div>
-          <button 
-            onClick={() => handleTweetShare(tweet.content)}
-            className="ml-4 p-2 text-gray-400 hover:text-indigo-400 transition-colors relative z-20"
-            title="Share on Twitter"
-          >
-            <svg className="w-5 h-5 group-hover:scale-110 transition-transform" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
-            </svg>
-          </button>
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={() => handleSaveTweet(tweet.content)}
+              className="p-2 text-gray-400 hover:text-indigo-400 transition-colors relative z-20"
+              title="Save Tweet"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+              </svg>
+            </button>
+            <button 
+              onClick={() => handleTweetShare(tweet.content)}
+              className="p-2 text-gray-400 hover:text-indigo-400 transition-colors relative z-20"
+              title="Share on Twitter"
+            >
+              <svg className="w-5 h-5 group-hover:scale-110 transition-transform" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+              </svg>
+            </button>
+          </div>
         </div>
         <div className="text-gray-300 space-y-6 group-hover:text-white transition-all transform group-hover:translate-x-1">
           {tweet.content.split('|').map((line, i) => (
@@ -117,7 +221,7 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0E1012] text-white py-12 px-4">
+    <div className="min-h-screen bg-[#0E1012] text-white py-12 px-4 relative">
       <div className="max-w-4xl mx-auto space-y-8">
         {/* Header */}
         <div className="text-center space-y-6">
@@ -177,6 +281,63 @@ function App() {
           )}
         </div>
       </div>
+
+      {/* Saved Tweets Sidebar */}
+      <div className={`fixed top-0 right-0 h-full w-80 bg-[#1A1C1E] border-l border-gray-800 transform transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-xl font-bold text-gray-300">Saved Tweets</h3>
+            <button
+              onClick={() => setIsSidebarOpen(false)}
+              className="text-gray-400 hover:text-white"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          <div className="space-y-4">
+            {savedTweets.map((tweet) => (
+              <div key={tweet.id} className="bg-[#232527] p-4 rounded-lg border border-gray-800">
+                <div className="flex justify-between items-start mb-2">
+                  <button
+                    onClick={() => handleTweetShare(tweet.content)}
+                    className="text-gray-400 hover:text-indigo-400 transition-colors"
+                  >
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                    </svg>
+                  </button>
+                  <button
+                    onClick={() => handleDeleteSavedTweet(tweet.id)}
+                    className="text-gray-400 hover:text-red-400 transition-colors"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                </div>
+                <div className="text-gray-300">
+                  {tweet.content.split('|').map((line, i) => (
+                    <p key={i} className="mb-2">{line.trim()}</p>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Toggle Saved Tweets Button */}
+      <button
+        onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+        className="fixed bottom-8 right-8 bg-indigo-600 hover:bg-indigo-700 text-white p-3 rounded-full shadow-lg transition-colors"
+        title="Toggle Saved Tweets"
+      >
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+        </svg>
+      </button>
     </div>
   )
 }
